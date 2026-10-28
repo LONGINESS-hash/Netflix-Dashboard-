@@ -78,12 +78,12 @@ with st.sidebar:
   selected_year = st.selectbox('Select a Year', year_list, index=0)
   df_selected_year = df[df['year_added'] == selected_year]
   df_selected_year_sorted = df_selected_year.sort_values(by="release_year", ascending=False)
-  color_theme_list = ['blues', 'cividis', 'greens', 'inferno', 'magma', 'plasma', 'reds', 'rainbow', 'turbo', 'viridis' ]
+  color_theme_list = ['blues', 'cividis', 'inferno', 'magma', 'plasma', 'turbo']
   selected_color_theme = st.selectbox('Select a color theme', color_theme_list)
   genre_list = sorted(df['listed_in'].str.split(', ').explode().str.strip(' ,').unique())
   selected_genre = st.selectbox('Select a genre', genre_list)
 
-def make_donut(input_response, input_text, input_color):
+def make_donut(input_response, input_text, input_color, input_font='Lato'):
   if input_color == 'blue':
       chart_color = ['#29b5e8', '#155F7A']
   if input_color == 'green':
@@ -113,7 +113,7 @@ def make_donut(input_response, input_text, input_color):
                       legend=None),
   ).properties(width=130, height=130)
 
-  text = plot.mark_text(align='center', color="#29b5e8", font="Lato", fontSize=32, fontWeight=700, fontStyle="italic").encode(text=alt.value(f'{input_response} %'))
+  text = plot.mark_text(align='center', color="#29b5e8", font=input_font, fontSize=32, fontWeight=700, fontStyle="italic").encode(text=alt.value(f'{input_response} %'))
   plot_bg = alt.Chart(source_bg).mark_arc(innerRadius=45, cornerRadius=20).encode(
       theta="% value",
       color= alt.Color("Topic:N",
@@ -124,6 +124,11 @@ def make_donut(input_response, input_text, input_color):
                       legend=None),
   ).properties(width=130, height=130)
   return plot_bg + plot + text
+
+try:
+    st.image(Image.open('header.png'), width='stretch')
+except FileNotFoundError:
+    st.title('Netflix Database Dashboard')
 
 #top 4 movie genres (donut charts)
 
@@ -137,7 +142,7 @@ for col, (genre, count), color in zip(cols, genre_counts.items(), colors):
     pct = int(round(count / len(movies) * 100))
     with col:
         st.markdown(f'#### :{color}[{genre}]')
-        st.altair_chart(make_donut(pct, genre, color))
+        st.altair_chart(make_donut(pct, genre, color, 'Georgia'))
         st.metric(label='Movies', value=f'{count:,}')
 
 col = st.columns((1.5, 4.5, 2), gap='medium')
@@ -228,7 +233,7 @@ with col[1]:
 
 #now a datafram with countries and movies produced
 with col[2]:
-    st.markdown(f'#### Top Countries: {selected_genre}')
+    st.markdown(f'#### Top Countries (all years): {selected_genre}')
     st.dataframe(country_counts,
                  column_order=("country", "titles"),
                  hide_index=True,
@@ -240,7 +245,7 @@ with col[2]:
                     "titles": st.column_config.ProgressColumn(
                         "Titles",
                         format="%d",
-                        min_value=0,
+                        min_value=1,
                         max_value=int(country_counts.titles.max()),
                      )}
                  )
@@ -264,3 +269,16 @@ with col[2]:
             - 2008-2014 have fewer than 25 titles added per year, so their Gains/Losses are mostly noise.
             - {pct_no_country}% of titles have no country, so the map undercounts. {pct_no_director}% have no director.
             ''')
+
+st.divider()
+st.markdown('## Top 3 Directors!')
+st.caption(f'Counted from the {100 - pct_no_director}% of titles that list a director.')
+
+directors = df['director'].dropna().str.split(', ').explode().str.strip(' ,')
+top_directors = directors.value_counts().head(3)
+
+dir_cols = st.columns(3)
+for dir_col, (name, count), medal in zip(dir_cols, top_directors.items(), ['🥇', '🥈', '🥉']):
+    with dir_col:
+        st.markdown(f"<div style='text-align:center; font-size:42px; font-weight:700;'>{medal} {name}</div>", unsafe_allow_html=True)
+        st.metric(label='Titles directed', value=count)
